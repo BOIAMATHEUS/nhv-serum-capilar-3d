@@ -33,14 +33,15 @@ nav button{border:0;font-size:12px;padding:11px 16px}
 @media(max-height:640px){aside{top:14px;bottom:auto}aside label{margin-top:10px}nav{bottom:14px}}
 </style>
 <div id="stage"></div>
-<header><div class="brand">RENOVA BE</div><div class="eyebrow">Estúdio de embalagem</div></header>
+<header><div class="brand" id="marca-nome">RENOVA BE</div><div class="eyebrow">Estúdio de embalagem</div></header>
 <aside>
-  <h1>GHK-Cu</h1>
-  <p>Cartucho 42 × 42 × 125 mm<br>Rótulo 85 × 40 mm, faixa à esquerda<br>Verniz e relevo das máscaras de impressão</p>
+  <h1 id="marca-produto">GHK-Cu</h1>
+  <p id="marca-ficha">Cartucho 42 × 42 × 125 mm<br>Rótulo 85 × 40 mm, faixa à esquerda<br>Verniz e relevo das máscaras de impressão</p>
   <label for="exposure">Intensidade da luz</label>
   <input id="exposure" type="range" min="0.65" max="1.45" step=".01" value="1">
   <div class="actions"><button id="rasante" aria-pressed="false">Luz rasante · acabamentos</button><button id="rotate" aria-pressed="false">Girar 360°</button><button id="save" class="primary">Salvar PNG · 2400 px</button></div>
 </aside>
+<nav aria-label="Marca" style="bottom:auto;top:16px"><button data-marca="renova" aria-pressed="true">Renova Be</button><button data-marca="nhv" aria-pressed="false">New Hair</button></nav>
 <nav aria-label="Vistas"><button id="v-conjunto">Conjunto</button><button id="v-frasco">Frasco</button><button id="v-cartucho">Cartucho</button><button id="v-acabamentos">Acabamentos</button></nav>
 <div class="hint">Arraste para girar<br>Role para aproximar</div>
 <div id="status">Preparando vidro e líquido…</div>

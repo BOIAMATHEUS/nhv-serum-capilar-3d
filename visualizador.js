@@ -207,16 +207,25 @@ async function tex(arq, cor, viraY = true) {
   t.wrapS = t.wrapT = T.ClampToEdgeWrapping;
   return t;
 }
-const alfaFaca = await tex('rot-alfa.webp', false);
+const alfaFaca = await tex('renova/rot-alfa.webp', false);
 const mapasRot = {};
+// A faca do rotulo, o verniz e o relevo vem da Renova nas duas marcas: e o mesmo frasco e
+// o mesmo formato de rotulo. O que troca e a arte impressa.
 async function carregaRotulo(lado) {
   if (!mapasRot[lado]) mapasRot[lado] = {
-    cor: await tex(`rot-${lado}-cor.webp`, true),
-    verniz: await tex(`rot-${lado}-verniz.webp`, false),
-    normal: await tex(`rot-${lado}-normal.webp`, false)
+    cor: await tex(`renova/rot-${lado}-cor.webp`, true),
+    verniz: await tex(`renova/rot-${lado}-verniz.webp`, false),
+    normal: await tex(`renova/rot-${lado}-normal.webp`, false)
   };
   return mapasRot[lado];
 }
+// a arte do rotulo de cada marca
+const corRotulo = {
+  renova: await tex('renova/rot-esquerda-cor.webp', true),
+  // 110 x 50 mm, uma volta inteira do corpo de 35 mm de diametro, recortada da folha
+  // de impressao. A faixa do frasco mostra a parte central dela.
+  nhv:    await tex('nhv/rot-esquerda-cor.png', true)
+};
 let rotulo = null;
 async function poeRotulo(lado) {
   const m = await carregaRotulo(lado);
@@ -267,14 +276,17 @@ function attrC(i) {
 }
 const paineis = ['frente', 'verso', 'topo', 'base', 'direita', 'esquerda'];
 const matCartucho = {};
+const mapasCartucho = {renova: {}, nhv: {}};
 for (const nome of paineis) {
-  // A arte da NHV sai do Illustrator em PNG e NAO tem mascara de verniz nem de relevo:
-  // na Renova esses dois mapas vinham do pacote de impressao (verniz localizado e relevo
-  // seco), e aqui esse pacote ainda nao existe. Sem mapa, o painel fica fosco e liso, que
-  // e o certo para cartao sem acabamento, em vez de inventar um brilho que nao foi
-  // especificado.
-  const cor = await tex(`car-${nome}-cor.png`, true, false);
-  const verniz = null, normal = null;
+  // Dois jogos: a Renova tem verniz localizado e relevo seco vindos do pacote de
+  // impressao dela; a NHV ainda nao tem esse pacote, entao vai so com a cor e o painel
+  // fica fosco, que e o certo para cartao sem acabamento.
+  const cor = await tex(`renova/car-${nome}-cor.webp`, true, false);
+  let verniz = null, normal = null;
+  if (nome !== 'base') { verniz = await tex(`renova/car-${nome}-verniz.webp`, false, false); normal = await tex(`renova/car-${nome}-normal.webp`, false, false); }
+  mapasCartucho.renova[nome] = {cor: cor, verniz: verniz, normal: normal};
+  mapasCartucho.nhv[nome] = {cor: await tex(`nhv/car-${nome}-cor.png`, true, false),
+                             verniz: null, normal: null};
   matCartucho[nome] = new T.MeshPhysicalMaterial({
     map: cor, roughness: .88, metalness: 0,
     clearcoat: verniz ? 1 : 0, clearcoatMap: verniz, clearcoatRoughness: .035,
@@ -323,6 +335,58 @@ sombra.grupo.position.x = -.0375;
 sombra.atualiza();
 
 // ---------------------------------------------------------------- camera e laco
+// ---------------------------------------------------------------- chave de marca
+// Troca os mapas dos materiais em vez de trocar objetos: a geometria e identica nas duas
+// marcas, entao duplicar peca na cena so custaria memoria e desenho a mais.
+let marcaAtual = 'renova';
+function aplicaMarca(m) {
+  if (m === marcaAtual) return;
+  marcaAtual = m;
+  for (const nome of paineis) {
+    const mp = mapasCartucho[m][nome], mt = matCartucho[nome];
+    if (!mp || !mt) continue;
+    mt.map = mp.cor;
+    mt.clearcoat = mp.verniz ? 1 : 0;
+    mt.clearcoatMap = mp.verniz;
+    mt.normalMap = mp.normal;
+    mt.clearcoatNormalMap = mp.normal;
+    mt.needsUpdate = true;
+  }
+  if (rotulo) {
+    const mt = rotulo.material;
+    mt.map = corRotulo[m];
+    // O relevo e o verniz do rotulo tambem sao da Renova. Mantidos na NHV, o alto-relevo
+    // das letras "RENOVA BE" aparecia como fantasma por cima da arte da NHV, porque o
+    // mapa de normais carrega o desenho das letras dela.
+    const temAcabamento = (m === "renova");
+    mt.clearcoat = temAcabamento ? 1 : 0;
+    mt.clearcoatMap = temAcabamento ? mapasRot["esquerda"].verniz : null;
+    mt.normalMap = temAcabamento ? mapasRot["esquerda"].normal : null;
+    mt.clearcoatNormalMap = mt.normalMap;
+    mt.needsUpdate = true;
+  }
+  const ficha = {
+    renova: {nome: 'RENOVA BE', produto: 'GHK-Cu',
+             linhas: 'Cartucho 42 × 42 × 125 mm<br>Rótulo 85 × 40 mm, faixa à esquerda<br>Verniz e relevo das máscaras de impressão'},
+    nhv:    {nome: 'NHV', produto: 'Sérum Capilar',
+             linhas: 'Cartucho 42 × 42 × 125 mm<br>Rótulo 110 × 50 mm, volta inteira do corpo<br>Cartão sem verniz nem relevo'}
+  }[m];
+  if (ficha) {
+    const a = document.getElementById('marca-nome');
+    const b = document.getElementById('marca-produto');
+    const c = document.getElementById('marca-ficha');
+    if (a) a.textContent = ficha.nome;
+    if (b) b.textContent = ficha.produto;
+    if (c) c.innerHTML = ficha.linhas;
+    document.title = ficha.nome + ' — ' + ficha.produto;
+  }
+  for (const b of document.querySelectorAll('[data-marca]'))
+    b.setAttribute('aria-pressed', String(b.dataset.marca === m));
+  sujo = true;
+}
+for (const b of document.querySelectorAll('[data-marca]'))
+  b.onclick = () => aplicaMarca(b.dataset.marca);
+
 const mostra = (lista, v) => lista.forEach(o => o.visible = v);
 // Arrastando, os tres retratos da refracao nao mudam o bastante de um quadro para o
 // outro para justificar quatro desenhos da cena inteira em cada um. A cada 3 quadros o
