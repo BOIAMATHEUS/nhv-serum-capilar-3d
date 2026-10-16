@@ -1,0 +1,7 @@
+# O .hdr tem cabecalho de TEXTO e corpo binario. Com core.autocrlf=true o Git o trata como
+# texto e troca todo 0x0A do corpo por 0x0D 0x0A no checkout, o que entrega um HDR corrompido
+# e derruba a iluminacao inteira. Marcado a mao porque a deteccao automatica nao pega.
+*.hdr binary
+*.glb binary
+*.webp binary
+*.png binary

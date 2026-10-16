@@ -29,7 +29,7 @@ renderer.outputColorSpace = T.SRGBColorSpace;
 // liquido; o Neutral cortava o brilho do verniz seco demais.
 // Neutral, nao ACES: o ACES acinzenta o branco, e cartucho branco perde a vida. E o
 // mesmo que o 3D dos potes usa no site.
-renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
+renderer.toneMapping = T.NeutralToneMapping; renderer.toneMappingExposure = 1.15;
 
 const scene = new T.Scene();
 const camera = new T.PerspectiveCamera(20, 1, .005, 3);
@@ -56,7 +56,9 @@ function redimensiona() {
 }
 redimensiona();
 
-const env = await new RGBELoader().loadAsync('./studio.hdr');
+// O mesmo arquivo que ilumina os potes no site. Tem softbox de verdade (pico 6,2 contra
+// 1,46 do studio.hdr), que e o que faz metal refletir e vidro brilhar.
+const env = await new RGBELoader().loadAsync('./studio-v8.hdr');
 env.mapping = T.EquirectangularReflectionMapping; scene.environment = env;
 // Fundo proprio, mais fechado que o do estudio padrao: o cartucho e branco e o rotulo
 // tambem, entao o fundo precisa cair para a peca recortar em vez de derreter nele.
@@ -68,25 +70,23 @@ env.mapping = T.EquirectangularReflectionMapping; scene.environment = env;
   x.fillStyle = g; x.fillRect(0, 0, 1024, 1024);
   const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace; scene.background = tex;
 })();
-// Uma principal mandando, preenchimento so para o lado escuro nao fechar, e contraluz
-// para separar a borda do fundo. Nada de hemisferica: era ela que chapava tudo.
-const principal = new T.DirectionalLight(0xfff7ec, 3.0); principal.position.set(-.24, .46, .58); scene.add(principal);
-const preenchimento = new T.DirectionalLight(0xdfe8f5, .10); preenchimento.position.set(.62, .12, .18); scene.add(preenchimento);
-const contraluz = new T.DirectionalLight(0xffffff, 1.35); contraluz.position.set(-.12, .40, -.62); scene.add(contraluz);
-scene.add(new T.HemisphereLight(0xffffff, 0x8e877f, .09));
-// 0,38 deixava o HDR quase sem efeito e jogava a iluminacao toda nas direcionais.
-scene.environmentIntensity = .38;
+// Nenhuma luz direcional, como no 3D dos potes: quem ilumina e so o HDR. As tres que
+// estavam aqui existiam para suprir um ambiente sem fonte de luz; com o studio-v8 as
+// softboxes vem do proprio HDR, e luz dobrada so chapava a peca.
+const AMBIENTE = 1.0;
+scene.environmentIntensity = AMBIENTE;
 
 // ---------------------------------------------------------------- vidro, liquido, pipeta
 const vertex = `varying vec3 wp;varying vec3 wn;void main(){vec4 w=modelMatrix*vec4(position,1.);wp=w.xyz;wn=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*viewMatrix*w;}`;
 function optico(fonte, ior, parede, absorcao, tipo) {
   return new T.ShaderMaterial({
     uniforms: {source: {value: fonte}, resolution: {value: resolucao}, environment: {value: env},
+      envIntensity: {value: AMBIENTE},
       ior: {value: ior}, wall: {value: parede}, absorption: {value: new T.Vector3(...absorcao)}, kind: {value: tipo}},
     vertexShader: vertex,
     fragmentShader: `
-uniform mat4 projectionMatrix;uniform sampler2D source;uniform sampler2D environment;uniform vec2 resolution;uniform float ior,wall,kind;uniform vec3 absorption;varying vec3 wp,wn;
-vec3 environmentAt(vec3 d){vec2 uv=vec2(atan(d.z,d.x)*.159154943+.5,asin(clamp(d.y,-1.,1.))*.318309886+.5);vec3 light=texture2D(environment,uv).rgb;float a=atan(d.z,d.x);float strip=exp(-pow((a-.35)/.12,2.))+ .7*exp(-pow((a-2.65)/.22,2.));return max(vec3(.025),(light-vec3(.18))*.6)+vec3(2.8)*strip;}
+uniform mat4 projectionMatrix;uniform sampler2D source;uniform sampler2D environment;uniform vec2 resolution;uniform float ior,wall,kind,envIntensity;uniform vec3 absorption;varying vec3 wp,wn;
+vec3 environmentAt(vec3 d){vec2 uv=vec2(atan(d.z,d.x)*.159154943+.5,asin(clamp(d.y,-1.,1.))*.318309886+.5);return max(vec3(.02),texture2D(environment,uv).rgb*envIntensity);}
 void main(){vec3 N=normalize(wn),V=normalize(cameraPosition-wp);float nv=max(dot(N,V),.001);vec3 ray=refract(-V,N,1./ior);float distance=wall/max(nv,.25);
 if(kind>0.5){float A=dot(ray.xz,ray.xz);float B=2.*dot(wp.xz,ray.xz);float C=dot(wp.xz,wp.xz)-RAIO*RAIO;distance=max(.001,(-B+sqrt(max(0.,B*B-4.*A*C)))/max(2.*A,.001));float cap=ray.y>0.?TOPO:FUNDO;float dcap=(cap-wp.y)/(abs(ray.y)>.00001?ray.y:.00001);if(dcap>0.)distance=min(distance,dcap);distance=min(distance,.065);}
 vec3 endpoint=wp+ray*distance;vec4 projected=projectionMatrix*viewMatrix*vec4(endpoint,1.);vec2 suv=projected.xy/projected.w*.5+.5;vec2 screen=gl_FragCoord.xy/resolution;
@@ -243,7 +243,26 @@ const corRotulo = {
   // de impressao. A faixa do frasco mostra a parte central dela.
   nhv:    await tex('nhv/rot-esquerda-cor.png', true)
 };
+// A MESMA arte em espaco linear. Serve de metalnessMap: canal azul branco (papel sem tinta)
+// = folha prata, canal azul preto (tinta impressa) = tinta fosca. E o que separa as duas
+// camadas que o frasco tem de verdade.
+const folhaRotulo = {renova: null, nhv: await tex('nhv/rot-esquerda-cor.png', false)};
 let rotulo = null;
+// acabamento do rotulo por marca. A Renova e papel fosco com verniz localizado; a NHV e
+// folha metalizada, prata de verdade mas bem menos espelhada que o cromo do aro. E essa
+// diferenca de aspereza que faz o rotulo ler como etiqueta aplicada.
+// o creme da emissiva do pote, medido no rotulo que esta no site: [251, 241, 201]
+const CREME_DO_FOIL = 0xfbf1c9;
+const acabamentoRotulo = {
+  renova: {color: 0xffffff, metalness: 0, roughness: .824, clearcoatRoughness: .03, env: 1},
+  // metalness 1 aqui e so o multiplicador: quem decide onde ha metal e o folhaRotulo.
+  // roughness fica entre os dois acabamentos reais (folha .19, tinta .4) porque o painel e
+  // um so; o que faz a leitura e a diferenca de metal, nao a de aspereza.
+  nhv:    {color: 0xdcdde0, metalness: .859, roughness: .231, clearcoatRoughness: .09, env: 1,
+           brilho: .16}
+};
+// absorcao do liquido por marca: Renova ciano, NHV ambar-oliva (0xefd867)
+const absorcaoLiquido = {renova: [78, 17, 6], nhv: [5.6, 14.3, 78]};
 async function poeRotulo(lado) {
   const m = await carregaRotulo(lado);
   if (!rotulo) {
@@ -377,10 +396,23 @@ function aplicaMarca(m) {
     // das letras "RENOVA BE" aparecia como fantasma por cima da arte da NHV, porque o
     // mapa de normais carrega o desenho das letras dela.
     const temAcabamento = (m === "renova");
-    mt.clearcoat = temAcabamento ? 1 : 0;
+    mt.clearcoat = temAcabamento ? 1 : .55;
     mt.clearcoatMap = temAcabamento ? mapasRot["esquerda"].verniz : null;
     mt.normalMap = temAcabamento ? mapasRot["esquerda"].normal : null;
     mt.clearcoatNormalMap = mt.normalMap;
+    const ac = acabamentoRotulo[m];
+    if (ac) {
+      mt.color.setHex(ac.color);
+      mt.metalness = ac.metalness;
+      mt.roughness = ac.roughness;
+      mt.clearcoatRoughness = ac.clearcoatRoughness;
+      mt.envMapIntensity = ac.env;
+      // A arte faz de mascara: branco = folha, que brilha; preto = tinta, que nao brilha.
+      mt.emissive.setHex(ac.brilho ? CREME_DO_FOIL : 0x000000);
+      mt.emissiveIntensity = ac.brilho || 0;
+      mt.emissiveMap = ac.brilho ? folhaRotulo[m] : null;
+    }
+    mt.metalnessMap = folhaRotulo[m];
     mt.needsUpdate = true;
   }
   const ficha = {
@@ -398,6 +430,9 @@ function aplicaMarca(m) {
     if (c) c.innerHTML = ficha.linhas;
     document.title = ficha.nome + ' — ' + ficha.produto;
   }
+  const abs = absorcaoLiquido[m];
+  if (abs && matLiquido.uniforms && matLiquido.uniforms.absorption)
+    matLiquido.uniforms.absorption.value.set(abs[0], abs[1], abs[2]);
   for (const b of document.querySelectorAll('[data-marca]'))
     b.setAttribute('aria-pressed', String(b.dataset.marca === m));
   sujo = true;
@@ -559,7 +594,8 @@ function luzDeAcabamento(liga) {
   document.querySelector('#rasante').setAttribute('aria-pressed', String(liga));
   luzRasante.visible = luzRasante2.visible = liga;
   direcionais.forEach((l, i) => l.intensity = intensidadesBase[i] * (liga ? .22 : 1));
-  scene.environmentIntensity = liga ? .18 : .38;
+  scene.environmentIntensity = liga ? .30 : AMBIENTE;
+  for (const m of [matVidro, matLiquido, matPipeta]) m.uniforms.envIntensity.value = scene.environmentIntensity;
   sujo = true;
 }
 document.querySelector('#rasante').onclick = e =>
@@ -579,4 +615,4 @@ document.querySelector('#save').onclick = () => {
 
 document.querySelector('#status').hidden = true;
 renderer.setAnimationLoop(quadro);
-window.serum3d = {scene, camera, renderer, controls, frasco, cartucho, rotulo, redraw: () => sujo = true, loaded: true};
+window.serum3d = {scene, camera, renderer, controls, frasco, cartucho, rotulo, marca: aplicaMarca, redraw: () => sujo = true, loaded: true};
