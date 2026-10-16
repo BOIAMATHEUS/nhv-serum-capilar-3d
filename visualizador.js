@@ -98,9 +98,13 @@ gl_FragColor=vec4(color,1.);#include <tonemapping_fragment>
   });
 }
 
-// altura real das pecas: cartucho 140 mm, frasco 100 mm. O modelo do frasco termina
-// em .1198 (topo do bulbo), entao a escala fecha a peca em 100 mm exatos.
-const ESCALA = .100 / .1198;
+// O modelo do frasco JA esta em escala real: 35,2 mm de diametro por 119,9 mm de altura.
+// Aqui havia .100/.1198, que o espremia para 100 mm de altura e, de quebra, para 29,4 mm de
+// diametro. Com isso a etiqueta saia a 83,5% (41,7 mm em vez dos 50 mm da arte) e o frasco
+// dancava dentro de um cartucho de 42 x 42 x 125, com 6,3 mm de folga de cada lado e 25 mm
+// em cima. Em escala real a folga fica em 3,5 mm de lado e 5,2 mm no topo, que e como se
+// dimensiona cartucho, e a volta de 110,4 mm recebe a arte de 110 mm sem distorcer.
+const ESCALA = 1;
 const matVidro = optico(alvos[2].texture, 1.5, .0015, [.5, .2, .1], 0);
 const matLiquido = optico(alvos[1].texture, 1.333, .025, [78, 17, 6], 1);
 const matPipeta = optico(alvos[0].texture, 1.5, .0004, [0, 0, 0], -1);
