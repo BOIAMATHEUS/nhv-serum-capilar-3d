@@ -185,14 +185,22 @@ for (const [x, y, z, r] of [[-.006, .050, .012, .00045], [.005, .036, .010, .000
 }
 
 // ---------------------------------------------------------------- rotulo novo
-const ROT = {r: .0175 + .00012, y0: .015, y1: .055, frente: .28};
-const VOLTA = 85 / (2 * Math.PI * 17.5);     // 0,773 da volta: o resto fica em vidro nu
-function faixaRotulo(raio) {
+const ROT = {r: .0175 + .00012};
+// A faixa de cada marca, medida no arquivo de cada uma. frente e onde fica o centro da
+// frente dentro da arte, em fracao da largura.
+const FAIXA = {
+  // 85 x 40 mm, etiqueta recortada: 0,773 da volta, o resto fica em vidro nu
+  renova: {y0: .015, y1: .055, volta: 85 / (2 * Math.PI * 17.5), frente: .28},
+  // 110 x 50 mm, de 8 a 58 mm do fundo, volta inteira. Vem de IMPRESSAO em
+  // Serum Capilar New Hair/site/viewer.js:13, que e o frasco da NHV ja resolvido.
+  nhv: {y0: .008, y1: .058, volta: 1, frente: 27.5 / 110}
+};
+function faixaRotulo(raio, f) {
   const seg = 220, geo = new T.BufferGeometry(), pos = [], nor = [], uv = [], idx = [];
   for (let i = 0; i <= seg; i++) {
-    const u = i / seg, a = (u - ROT.frente) * VOLTA * Math.PI * 2;
+    const u = i / seg, a = (u - f.frente) * f.volta * Math.PI * 2;
     const x = Math.sin(a), z = Math.cos(a);
-    for (const [y, v] of [[ROT.y1, 1], [ROT.y0, 0]]) { pos.push(x * raio, y, z * raio); nor.push(x, 0, z); uv.push(u, v); }
+    for (const [y, v] of [[f.y1, 1], [f.y0, 0]]) { pos.push(x * raio, y, z * raio); nor.push(x, 0, z); uv.push(u, v); }
   }
   for (let i = 0; i < seg; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
   geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
@@ -266,7 +274,7 @@ const absorcaoLiquido = {renova: [78, 17, 6], nhv: [5.6, 14.3, 78]};
 async function poeRotulo(lado) {
   const m = await carregaRotulo(lado);
   if (!rotulo) {
-    rotulo = new T.Mesh(faixaRotulo(ROT.r), new T.MeshPhysicalMaterial({
+    rotulo = new T.Mesh(faixaRotulo(ROT.r, FAIXA.renova), new T.MeshPhysicalMaterial({
       map: m.cor, alphaMap: alfaFaca, transparent: true, alphaTest: .35,
       roughness: .86, metalness: 0,
       clearcoat: 1, clearcoatMap: m.verniz, clearcoatRoughness: .03,
@@ -413,6 +421,16 @@ function aplicaMarca(m) {
       mt.emissiveMap = ac.brilho ? folhaRotulo[m] : null;
     }
     mt.metalnessMap = folhaRotulo[m];
+    // A faca de etiqueta e so da Renova. A nossa e envelope inteiro: sem recorte, sem alfa.
+    const recortada = (m === 'renova');
+    mt.alphaMap = recortada ? alfaFaca : null;
+    mt.transparent = recortada;
+    mt.alphaTest = recortada ? .35 : 0;
+    // A malha nasce escalada na mao (geometry.scale), nao pelo grupo: refazer a faixa
+    // exige reaplicar a escala, senao ela sai em tamanho cru e atravessa o frasco.
+    rotulo.geometry.dispose();
+    rotulo.geometry = faixaRotulo(ROT.r, FAIXA[m] || FAIXA.renova);
+    rotulo.geometry.scale(ESCALA, ESCALA, ESCALA);
     mt.needsUpdate = true;
   }
   const ficha = {
