@@ -27,6 +27,8 @@ renderer.setPixelRatio(Math.min(Math.max(devicePixelRatio, 1.5), 2));
 renderer.outputColorSpace = T.SRGBColorSpace;
 // ACES Filmic: curva de foto de produto. O AgX, testado antes, lavou o papel e o
 // liquido; o Neutral cortava o brilho do verniz seco demais.
+// Neutral, nao ACES: o ACES acinzenta o branco, e cartucho branco perde a vida. E o
+// mesmo que o 3D dos potes usa no site.
 renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
 
 const scene = new T.Scene();
@@ -72,6 +74,7 @@ const principal = new T.DirectionalLight(0xfff7ec, 3.0); principal.position.set(
 const preenchimento = new T.DirectionalLight(0xdfe8f5, .10); preenchimento.position.set(.62, .12, .18); scene.add(preenchimento);
 const contraluz = new T.DirectionalLight(0xffffff, 1.35); contraluz.position.set(-.12, .40, -.62); scene.add(contraluz);
 scene.add(new T.HemisphereLight(0xffffff, 0x8e877f, .09));
+// 0,38 deixava o HDR quase sem efeito e jogava a iluminacao toda nas direcionais.
 scene.environmentIntensity = .38;
 
 // ---------------------------------------------------------------- vidro, liquido, pipeta
@@ -198,6 +201,20 @@ function faixaRotulo(raio) {
   geo.setIndex(idx); return geo;
 }
 const carregador = new T.TextureLoader();
+// Vies de LOD aplicado do jeito certo: onBeforeCompile entrega o shader com os #include
+// por resolver, entao mexer na chamada de textura direto nao casa nada. Aqui eu expando o
+// proprio chunk e devolvo o include ja com o vies dentro.
+function mapComBias(bias) {
+  const chunk = T.ShaderChunk.map_fragment;
+  let fora = chunk;
+  if (chunk.indexOf('texture2D( map, vMapUv )') >= 0)
+    fora = chunk.split('texture2D( map, vMapUv )').join('texture2D( map, vMapUv, ' + bias + ' )');
+  else if (chunk.indexOf('texture( map, vMapUv )') >= 0)
+    fora = chunk.split('texture( map, vMapUv )').join('texture( map, vMapUv, ' + bias + ' )');
+  else
+    console.warn('[3d] nao achei a chamada de textura no chunk map_fragment; sem vies de LOD');
+  return fora;
+}
 async function tex(arq, cor, viraY = true) {
   const t = await carregador.loadAsync('./' + arq);
   // as UVs do GLB do cartucho foram escritas para flipY desligado, como o glTF manda
@@ -241,7 +258,7 @@ async function poeRotulo(lado) {
     rotulo.name = 'Rotulo';
     // texto pequeno continua legivel de longe
     rotulo.material.onBeforeCompile = s => {
-      s.fragmentShader = s.fragmentShader.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -1.6 )');
+      s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', mapComBias(-1.6));
     };
     rotulo.material.customProgramCacheKey = () => 'rotulo-renova';
     frasco.add(rotulo); rotulos.push(rotulo);
@@ -295,9 +312,10 @@ for (const nome of paineis) {
     ior: 1.46, specularIntensity: .3
   });
   matCartucho[nome].onBeforeCompile = s => {
-    // vies de LOD: pega um mipmap mais nitido. A textura e reduzida 4,3x na vista
-    // padrao, e sem isto o mipmap entrega uma versao ja borrada do texto de bula
-    s.fragmentShader = s.fragmentShader.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -1.4 )');
+    // vies de LOD: pega um mipmap mais nitido. A textura e reduzida 2,1x na vista padrao
+    // (29,26 px/mm de textura contra 13,8 px/mm de tela) e sem isto o mipmap entrega uma
+    // versao ja borrada do texto de bula.
+    s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', mapComBias(-1.4));
     // Fibra do cartao, procedural: cartao nao e plastico liso, e a luz rasante precisa
     // de uma microtextura para quebrar. Assado na textura, o ruido nao comprimia e cada
     // mapa de normais pulava para 3,9 MB; aqui custa zero byte.
