@@ -5,7 +5,7 @@
 body{margin:0;background:#e6e1d8;color:var(--ink);font:13px 'Segoe UI',Arial,sans-serif;overflow:hidden}
 #stage{position:fixed;inset:0}canvas{display:block;width:100%;height:100%;outline:0}
 header{position:absolute;top:34px;left:38px;pointer-events:none}
-.brand{font:25px Georgia,serif;letter-spacing:-1px}
+.brand{display:block;width:auto}
 .eyebrow{text-transform:uppercase;letter-spacing:2px;font-size:10px;color:var(--muted);margin-top:10px}
 aside{position:absolute;right:28px;top:28px;width:238px;background:rgba(247,245,240,.92);backdrop-filter:blur(20px);border:1px solid #ffffff90;padding:22px;border-radius:14px;box-shadow:0 8px 32px #433a2a0d}
 h1{font:22px Georgia,serif;margin:0 0 5px}
@@ -25,7 +25,7 @@ nav button{border:0;font-size:12px;padding:11px 16px}
 #status{position:absolute;inset:0;display:grid;place-items:center;background:#e6e1d8;z-index:4;font-size:12px;letter-spacing:1px}
 #status[hidden]{display:none}
 .capture header,.capture aside,.capture nav,.capture .hint{display:none}
-@media(max-width:860px){header{top:22px;left:22px}.brand{font-size:21px}.hint{display:none}h1{font-size:18px}
+@media(max-width:860px){header{top:22px;left:22px}.brand{height:20px}.hint{display:none}h1{font-size:18px}
   #stage{bottom:286px}aside{left:16px;right:16px;top:auto;bottom:84px;width:auto;padding:16px}
   aside h1,aside p{display:none}aside label{margin-top:12px}
   nav{bottom:16px;max-width:calc(100% - 24px);gap:0}nav button{padding:10px 13px}
@@ -33,7 +33,7 @@ nav button{border:0;font-size:12px;padding:11px 16px}
 @media(max-height:640px){aside{top:14px;bottom:auto}aside label{margin-top:10px}nav{bottom:14px}}
 </style>
 <div id="stage"></div>
-<header><div class="brand" id="marca-nome">RENOVA BE</div><div class="eyebrow">Estúdio de embalagem</div></header>
+<header><img class="brand" id="marca-logo" src="marca/renova.png" alt="RENOVA BE" height="24"><div class="eyebrow">Estúdio de embalagem</div></header>
 <aside>
   <h1 id="marca-produto">GHK-Cu</h1>
   <p id="marca-ficha">Cartucho 42 × 42 × 125 mm<br>Rótulo 85 × 40 mm, faixa à esquerda<br>Verniz e relevo das máscaras de impressão</p>

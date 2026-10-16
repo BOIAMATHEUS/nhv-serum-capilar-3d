@@ -438,16 +438,16 @@ function aplicaMarca(m) {
     mt.needsUpdate = true;
   }
   const ficha = {
-    renova: {nome: 'RENOVA BE', produto: 'GHK-Cu',
+    renova: {nome: 'RENOVA BE', logo: 'marca/renova.png', alturaLogo: 24, produto: 'GHK-Cu',
              linhas: 'Cartucho 42 × 42 × 125 mm<br>Rótulo 85 × 40 mm, faixa à esquerda<br>Verniz e relevo das máscaras de impressão'},
-    nhv:    {nome: 'NHV', produto: 'Sérum Capilar',
+    nhv:    {nome: 'NHV', logo: 'marca/nhv.svg', alturaLogo: 34, produto: 'Sérum Capilar',
              linhas: 'Cartucho 42 × 42 × 125 mm<br>Rótulo 110 × 50 mm, volta inteira do corpo<br>Cartão sem verniz nem relevo'}
   }[m];
   if (ficha) {
-    const a = document.getElementById('marca-nome');
+    const a = document.getElementById('marca-logo');
     const b = document.getElementById('marca-produto');
     const c = document.getElementById('marca-ficha');
-    if (a) a.textContent = ficha.nome;
+    if (a) { a.src = ficha.logo; a.alt = ficha.nome; a.height = ficha.alturaLogo; }
     if (b) b.textContent = ficha.produto;
     if (c) c.innerHTML = ficha.linhas;
     document.title = ficha.nome + ' — ' + ficha.produto;
