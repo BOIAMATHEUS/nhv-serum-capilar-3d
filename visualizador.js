@@ -15,6 +15,11 @@ import {OrbitControls} from './OrbitControls.js';
 import {RGBELoader} from './RGBELoader.js';
 import {fundo, luzes, sombraContato} from './estudio.js';
 
+// Versao na URL das texturas. O Pages serve com max-age=600, entao sem isto o navegador
+// continua mostrando a arte velha por ate dez minutos depois de republicar.
+const VERSAO = '20261016-1424';
+
+
 let sujo = true;
 const captura = new URLSearchParams(location.search).has('capture');
 if (captura) document.body.classList.add('capture');
@@ -58,7 +63,7 @@ redimensiona();
 
 // O mesmo arquivo que ilumina os potes no site. Tem softbox de verdade (pico 6,2 contra
 // 1,46 do studio.hdr), que e o que faz metal refletir e vidro brilhar.
-const env = await new RGBELoader().loadAsync('./studio-v8.hdr');
+const env = await new RGBELoader().loadAsync('./studio-v8.hdr?v=' + VERSAO);
 env.mapping = T.EquirectangularReflectionMapping; scene.environment = env;
 // Fundo proprio, mais fechado que o do estudio padrao: o cartucho e branco e o rotulo
 // tambem, entao o fundo precisa cair para a peca recortar em vez de derreter nele.
@@ -228,7 +233,7 @@ function mapComBias(bias) {
   return fora;
 }
 async function tex(arq, cor, viraY = true) {
-  const t = await carregador.loadAsync('./' + arq);
+  const t = await carregador.loadAsync('./' + arq + '?v=' + VERSAO);
   // as UVs do GLB do cartucho foram escritas para flipY desligado, como o glTF manda
   t.flipY = viraY;
   if (cor) t.colorSpace = T.SRGBColorSpace;
@@ -438,9 +443,9 @@ function aplicaMarca(m) {
     mt.needsUpdate = true;
   }
   const ficha = {
-    renova: {nome: 'RENOVA BE', logo: 'marca/renova.png', alturaLogo: 24, produto: 'GHK-Cu',
+    renova: {nome: 'RENOVA BE', logo: 'marca/renova.png?v=' + VERSAO, alturaLogo: 24, produto: 'GHK-Cu',
              linhas: 'Cartucho 42 × 42 × 125 mm<br>Rótulo 85 × 40 mm, faixa à esquerda<br>Verniz e relevo das máscaras de impressão'},
-    nhv:    {nome: 'NHV', logo: 'marca/nhv.svg', alturaLogo: 34, produto: 'Sérum Capilar',
+    nhv:    {nome: 'NHV', logo: 'marca/nhv.svg?v=' + VERSAO, alturaLogo: 34, produto: 'Sérum Capilar',
              linhas: 'Cartucho 42 × 42 × 125 mm<br>Rótulo 110 × 50 mm, volta inteira do corpo<br>Cartão sem verniz nem relevo'}
   }[m];
   if (ficha) {
